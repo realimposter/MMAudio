@@ -22,6 +22,7 @@ torch.backends.cudnn.allow_tf32 = True
 
 log = logging.getLogger()
 
+
 @torch.inference_mode()
 def main():
     setup_eval_logging()
@@ -46,6 +47,7 @@ def main():
                         type=str,
                         default='cuda',
                         help='Device to run inference on (e.g. cpu, cuda, cuda:1)')
+    parser.add_argument('--cache_only', action='store_true')
 
     args = parser.parse_args()
 
@@ -53,6 +55,10 @@ def main():
         raise ValueError(f'Unknown model variant: {args.variant}')
     model: ModelConfig = all_model_cfg[args.variant]
     model.download_if_needed()
+    
+    if args.cache_only:
+        return
+    
     seq_cfg = model.seq_cfg
 
     if args.video:
@@ -92,16 +98,13 @@ def main():
     rng.manual_seed(seed)
     fm = FlowMatching(min_sigma=0, inference_mode='euler', num_steps=num_steps)
 
-    # Pass device and dtype into FeaturesUtils, so it stays on CPU if requested
     feature_utils = FeaturesUtils(
         tod_vae_ckpt=model.vae_path,
         synchformer_ckpt=model.synchformer_ckpt,
         enable_conditions=True,
         mode=model.mode,
         bigvgan_vocoder_ckpt=model.bigvgan_16k_path,
-        need_vae_encoder=False,
-        device=device,               # <--- new
-        dtype=dtype                  # <--- new
+        need_vae_encoder=False
     )
     feature_utils = feature_utils.to(device, dtype).eval()
 
@@ -153,6 +156,7 @@ def main():
 
     if device.type == 'cuda':
         log.info('Memory usage: %.2f GB', torch.cuda.max_memory_allocated() / (2**30))
+
 
 if __name__ == '__main__':
     main()
