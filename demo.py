@@ -22,7 +22,6 @@ torch.backends.cudnn.allow_tf32 = True
 
 log = logging.getLogger()
 
-
 @torch.inference_mode()
 def main():
     setup_eval_logging()
@@ -93,13 +92,16 @@ def main():
     rng.manual_seed(seed)
     fm = FlowMatching(min_sigma=0, inference_mode='euler', num_steps=num_steps)
 
+    # Pass device and dtype into FeaturesUtils, so it stays on CPU if requested
     feature_utils = FeaturesUtils(
         tod_vae_ckpt=model.vae_path,
         synchformer_ckpt=model.synchformer_ckpt,
         enable_conditions=True,
         mode=model.mode,
         bigvgan_vocoder_ckpt=model.bigvgan_16k_path,
-        need_vae_encoder=False
+        need_vae_encoder=False,
+        device=device,               # <--- new
+        dtype=dtype                  # <--- new
     )
     feature_utils = feature_utils.to(device, dtype).eval()
 
@@ -151,7 +153,6 @@ def main():
 
     if device.type == 'cuda':
         log.info('Memory usage: %.2f GB', torch.cuda.max_memory_allocated() / (2**30))
-
 
 if __name__ == '__main__':
     main()
